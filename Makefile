@@ -9,6 +9,7 @@ BUILD_DIR = build
 BIN_DIR = bin
 INCLUDE_DIR = include
 TEST_DIR = tests
+VALGRIND_DIR = valgrind_out
 
 # Library directories
 LIB_DIR = lib
@@ -63,8 +64,14 @@ CONF_FILE=example.conf
 test: $(TEST_BIN)
 
 # Run valgrind on the test executable
-valgrind: $(TEST_BIN)
-	valgrind --leak-check=full --show-leak-kinds=all ./$(TEST_BIN) $(CONF_FILE)
+valgrind: $(TEST_BIN) $(VALGRIND_DIR)
+	valgrind --leak-check=full --show-leak-kinds=all ./$(TEST_BIN) $(CONF_FILE) 2>&1 | tee $(VALGRIND_DIR)/valgrind_output.txt
+	if grep -q 'ERROR SUMMARY: 0 errors from 0 contexts' $(VALGRIND_DIR)/valgrind_output.txt; then \
+		echo "Valgrind passed with no memory leaks."; \
+	else \
+		echo "Valgrind found memory leaks or errors!"; \
+		exit 1;  # Exit with a non-zero code to fail the job \
+	fi
 
 # Create necessary directories
 $(BIN_DIR):
@@ -77,8 +84,11 @@ $(BUILD_DIR):
 $(BUILD_DIR)/%:
 	mkdir -p $@
 
+$(VALGRIND_DIR):
+	mkdir -p $(VALGRIND_DIR)
+
 # Clean target to remove build artifacts
 clean:
-	rm -rf $(BUILD_DIR) $(BIN_DIR)
+	rm -rf $(BUILD_DIR) $(BIN_DIR) $(VALGRIND_DIR)
 
 .PHONY: all clean
