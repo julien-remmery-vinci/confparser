@@ -8,6 +8,7 @@ SRC_DIR = src
 BUILD_DIR = build
 BIN_DIR = bin
 INCLUDE_DIR = include
+TEST_DIR = tests
 
 # Library directories
 LIB_DIR = lib
@@ -21,6 +22,9 @@ LIB_OBJS := $(patsubst $(LIB_DIR)/%/src/%.c, $(BUILD_DIR)/%/%.o, $(LIB_SRCS))
 # Source files for the main project
 SRCS = $(wildcard $(SRC_DIR)/*.c)
 OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS))
+
+# Test executable
+TEST_BIN = $(BIN_DIR)/test
 
 # Output binary
 MAIN_FILE := $(shell grep -l 'int main' $(SRC_DIR)/*.c)
@@ -44,6 +48,23 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 # Compile library source files into object files
 $(BUILD_DIR)/%/%.o: $(LIB_DIR)/%/src/%.c | $(BUILD_DIR)/%
 	$(CC) $(CFLAGS) -c $< -o $@
+
+# Compile test source files into object files
+$(BUILD_DIR)/%.o: $(TEST_DIR)/%.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Link the test executable
+$(TEST_BIN): $(OBJS) $(LIB_OBJS) | $(BIN_DIR)
+	$(CC) $(OBJS) $(LIB_OBJS) -o $(TEST_BIN)
+
+CONF_FILE=example.conf
+
+# Test build
+test: $(TEST_BIN)
+
+# Run valgrind on the test executable
+valgrind: $(TEST_BIN)
+	valgrind --leak-check=full --show-leak-kinds=all ./$(TEST_BIN) $(CONF_FILE)
 
 # Create necessary directories
 $(BIN_DIR):
