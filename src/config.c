@@ -10,6 +10,9 @@
 #define MISSING_KEY -2
 #define MISSING_VALUE -3
 
+#define TRUE 1
+#define FALSE 0
+
 Logger warn_log = {
     .level = LOG_WARN
 };
@@ -187,4 +190,34 @@ void free_config(Config* config) {
     free(config->keys);
     config->keys = NULL;
     config->keys_count = 0;
+}
+
+char* config_get_str(Config* config, const char* key) {
+    for (int i = 0; i < config->keys_count; i++)
+    {
+        if(strcmp(key, config->keys[i].key) == 0) {
+            return strdup(config->keys[i].value);
+        }
+    }
+    return NULL;
+}
+
+int config_get_int(Config* config, const char* key) {
+    for (int i = 0; i < config->keys_count; i++)
+    {
+        if(strcmp(key, config->keys[i].key) == 0) {
+            return atoi(config->keys[i].value);
+        }
+    }
+}
+
+int config_get_bool(Config* config, const char* key) {
+    for (int i = 0; i < config->keys_count; i++)
+    {
+        if(strcmp(key, config->keys[i].key) == 0) {
+            return strcmp(config->keys[i].value, "true") == 0 ? TRUE :
+                strcmp(config->keys[i].value, "false") == 0 ? FALSE : ERROR;
+        }
+    }
+    return ERROR;
 }
