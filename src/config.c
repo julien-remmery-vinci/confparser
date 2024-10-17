@@ -114,19 +114,32 @@ char* next_token(FILE* file) {
 
 int get_next_key_value(FILE* file, KeyValue* kv) {
     char* key;
+    int key_found = 0;
     do { // keep going while file contains '\n' -> maybe another key exists
         key = next_token(file);
         if(key == NULL) {
             return MISSING_KEY;
         }
-    } while(strcmp(key, "\n") == 0);
+        if(strcmp(key, "\n") == 0) {
+            free(key);
+            key = NULL;
+            continue;
+        } else {
+            key_found = 1;
+        }
+    } while(!key_found);
 
     char* value = next_token(file);
     if(value == NULL || strcmp(value, "\n") == 0) {
+        if(value != NULL) {
+            free(value);
+            value = NULL;
+        }
         logger(&warn_log, "Missing value for key %s, ignoring it\n", key);
         free(key);
         return MISSING_VALUE;
     }
+
     kv->key = key;
     kv->value = value;
 
@@ -137,6 +150,7 @@ int get_next_key_value(FILE* file, KeyValue* kv) {
     }
 
     free(next);
+    next = NULL;
 
     return SUCCESS;
 }
@@ -209,6 +223,7 @@ int config_get_int(Config* config, const char* key) {
             return atoi(config->keys[i].value);
         }
     }
+    return;
 }
 
 int config_get_bool(Config* config, const char* key) {

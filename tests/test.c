@@ -25,4 +25,5 @@ int main(int argc, const char** argv) {
         printf("boolval: %d\n", boolval);
     }
     free_config(&config);
+    free(strval);
 }

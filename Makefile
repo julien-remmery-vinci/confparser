@@ -1,94 +1,65 @@
-# Makefile made using GPT-4o
-
-# Compiler
+# Compiler and flags
 CC = gcc
+CFLAGS = -Wall -Wextra -g
+LDFLAGS = -lm  # Add any additional libraries here if needed
 
 # Directories
 SRC_DIR = src
+TEST_DIR = tests
+LIB_DIR = lib
 BUILD_DIR = build
 BIN_DIR = bin
-INCLUDE_DIR = include
-TEST_DIR = tests
-VALGRIND_DIR = valgrind_out
+LOGS_DIR = logs
+INCLUDE_DIRS = -Iinclude $(shell find $(LIB_DIR) -type d -name include | sed 's/^/-I/')
 
-# Library directories
-LIB_DIR = lib
-LIBS := $(wildcard $(LIB_DIR)/*)  # Find all libraries (e.g., clogger, anotherlib)
+# Find all .c files in src and lib directories
+SRC_FILES = $(wildcard $(SRC_DIR)/*.c)
+LIB_SRC_FILES = $(shell find $(LIB_DIR) -type f -name "*.c")
+TEST_FILES = $(wildcard $(TEST_DIR)/*.c)
 
-# Gather source and include directories for each library
-LIB_SRCS := $(foreach lib, $(LIBS), $(wildcard $(lib)/src/*.c))
-LIB_INCLUDES := $(foreach lib, $(LIBS), -I$(lib)/include)
-LIB_OBJS := $(patsubst $(LIB_DIR)/%/src/%.c, $(BUILD_DIR)/%/%.o, $(LIB_SRCS))
+# Output test executable in the bin/ directory
+TEST_TARGET = $(BIN_DIR)/test
 
-# Source files for the main project
-SRCS = $(wildcard $(SRC_DIR)/*.c)
-OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS))
+# Object files
+OBJ_FILES = $(patsubst %.c, $(BUILD_DIR)/%.o, $(SRC_FILES) $(LIB_SRC_FILES))
+TEST_OBJ_FILES = $(patsubst %.c, $(BUILD_DIR)/%.o, $(TEST_FILES))
 
-# Test executable
-TEST_BIN = $(BIN_DIR)/test
+# Default target: build the test program
+all: test
 
-# Output binary
-MAIN_FILE := $(shell grep -l 'int main' $(SRC_DIR)/*.c)
+# Build test executable and ensure the bin/ directory exists
+test: $(OBJ_FILES) $(TEST_OBJ_FILES) | $(BIN_DIR)
+	$(CC) $(CFLAGS) $(OBJ_FILES) $(TEST_OBJ_FILES) -o $(TEST_TARGET) $(LDFLAGS)
 
-TARGET = $(BIN_DIR)/$(basename $(notdir $(MAIN_FILE)))
+# Ensure bin/ directory exists
+$(BIN_DIR):
+	mkdir -p $(BIN_DIR)
 
-# Compiler flags
-CFLAGS = -I$(INCLUDE_DIR) $(LIB_INCLUDES)
+# Compile source and test files into object files
+$(BUILD_DIR)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $(INCLUDE_DIRS) -c $< -o $@
 
-# Default target
-all: $(TARGET)
+# logs dir
+$(LOGS_DIR):
+	mkdir -p $(LOGS_DIR)
 
-# Link object files (both main and library objects) into the final executable
-$(TARGET): $(OBJS) $(LIB_OBJS) | $(BIN_DIR)
-	$(CC) $(OBJS) $(LIB_OBJS) -o $(TARGET)
+# test conf file
+TEST_CONF = $(TEST_DIR)/test.conf
 
-# Compile main source files into object files
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# Compile library source files into object files
-$(BUILD_DIR)/%/%.o: $(LIB_DIR)/%/src/%.c | $(BUILD_DIR)/%
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# Compile test source files into object files
-$(BUILD_DIR)/%.o: $(TEST_DIR)/%.c | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# Link the test executable
-$(TEST_BIN): $(OBJS) $(LIB_OBJS) | $(BIN_DIR)
-	$(CC) $(OBJS) $(LIB_OBJS) -o $(TEST_BIN)
-
-CONF_FILE=example.conf
-
-# Test build
-test: $(TEST_BIN)
-
-# Run valgrind on the test executable
-valgrind: $(TEST_BIN) $(VALGRIND_DIR)
-	valgrind --leak-check=full --show-leak-kinds=all ./$(TEST_BIN) $(CONF_FILE) 2>&1 | tee $(VALGRIND_DIR)/valgrind_output.txt
-	if grep -q 'ERROR SUMMARY: 0 errors from 0 contexts' $(VALGRIND_DIR)/valgrind_output.txt; then \
+# Run tests with Valgrind (from bin/ directory)
+valgrind: test $(LOGS_DIR)
+	valgrind --leak-check=full --track-origins=yes ./$(TEST_TARGET) $(TEST_CONF) 2>&1 | tee $(LOGS_DIR)/valgrind.txt
+	if grep -q 'ERROR SUMMARY: 0 errors from 0 contexts' $(LOGS_DIR)/valgrind.txt; then \
 		echo "Valgrind passed with no memory leaks."; \
 	else \
 		echo "Valgrind found memory leaks or errors!"; \
 		exit 1;  # Exit with a non-zero code to fail the job \
 	fi
 
-# Create necessary directories
-$(BIN_DIR):
-	mkdir -p $(BIN_DIR)
-
-$(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
-
-# Create library-specific build directories
-$(BUILD_DIR)/%:
-	mkdir -p $@
-
-$(VALGRIND_DIR):
-	mkdir -p $(VALGRIND_DIR)
-
-# Clean target to remove build artifacts
+# Clean build and bin files
 clean:
-	rm -rf $(BUILD_DIR) $(BIN_DIR) $(VALGRIND_DIR)
+	rm -rf $(BUILD_DIR) $(BIN_DIR) $(LOGS_DIR)
 
-.PHONY: all clean
+# Phony targets
+.PHONY: all test valgrind clean
