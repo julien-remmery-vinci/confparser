@@ -23,7 +23,9 @@ SRCS = $(wildcard $(SRC_DIR)/*.c)
 OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS))
 
 # Output binary
-TARGET = $(BIN_DIR)/main
+MAIN_FILE := $(shell grep -l 'int main' $(SRC_DIR)/*.c)
+
+TARGET = $(BIN_DIR)/$(basename $(notdir $(MAIN_FILE)))
 
 # Compiler flags
 CFLAGS = -I$(INCLUDE_DIR) $(LIB_INCLUDES)
